@@ -47,22 +47,23 @@
         let base64Frontal = null;
         let base64Trasera = null;
 
-        function procesarImagen(file, tipo) {
+                function procesarImagen(file, tipo) {
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = () => {
-                const base64 = reader.result.split(',')[1];
+                const base64Completo = reader.result;
+                const base64Puro = base64Completo.split(',')[1]; // Extrae el Base64 limpio
+
                 if (tipo === 'frontal') {
-                    base64Frontal = base64;
-                    document.getElementById('prevFrontal.src') // placeholder para corregir sintaxis
+                    base64Frontal = base64Puro;
                     const prev = document.getElementById('prevFrontal');
-                    prev.src = reader.result;
+                    prev.src = base64Completo;
                     prev.style.display = 'block';
                     document.getElementById('labelFrontal').classList.add('ready');
                 } else {
-                    base64Trasera = base64;
+                    base64Trasera = base64Puro;
                     const prev = document.getElementById('prevTrasera');
-                    prev.src = reader.result;
+                    prev.src = base64Completo;
                     prev.style.display = 'block';
                     document.getElementById('labelTrasera').classList.add('ready');
                 }
@@ -71,7 +72,8 @@
                     document.getElementById('btnEnviar').disabled = false;
                 }
             };
-        }
+                }
+        
 
         document.getElementById('fotoFrontal').addEventListener('change', (e) => {
             if (e.target.files[0]) procesarImagen(e.target.files[0], 'frontal');
