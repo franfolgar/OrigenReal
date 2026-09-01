@@ -3,68 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Captura - Origen Real</title>
+    <title>Captura Dual - Origen Real</title>
     <style>
         body { font-family: system-ui, sans-serif; padding: 20px; text-align: center; background: #f8fafc; color: #1e293b; margin: 0; }
-        .container { max-width: 400px; margin: 40px auto; background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .container { max-width: 400px; margin: 20px auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         input[type="file"] { display: none; }
-        .btn-cam { display: block; width: 100%; background: #0ea5e9; color: white; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; box-sizing: border-box; text-align: center; }
-        .btn-cam:active { background: #0284c7; }
+        .btn-cam { display: block; width: 100%; background: #e2e8f0; color: #334155; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; box-sizing: border-box; text-align: center; margin-bottom: 12px; }
+        .btn-cam.ready { background: #dcfce7; color: #166534; border: 2px solid #22c55e; }
+        .btn-send { display: block; width: 100%; background: #0ea5e9; color: white; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; box-sizing: border-box; text-align: center; margin-top: 20px; }
+        .btn-send:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .preview { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; }
         #loading { display: none; margin-top: 20px; font-weight: 600; color: #f59e0b; }
         #resultado { margin-top: 20px; text-align: left; font-size: 13px; background: #f1f5f9; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; max-height: 250px; overflow-y: auto; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Auditor de Envases</h2>
-        <p>Abre la cámara trasera para capturar el etiquetado.</p>
+        <h2>Auditor Dual</h2>
+        <p>Captura ambas caras para un análisis preciso.</p>
         
-        <label class="btn-cam">
-            📷 Abrir Cámara
-            <input type="file" id="fotoInput" accept="image/*" capture="environment">
+        <label class="btn-cam" id="labelFrontal">
+            📷 1. Foto Frontal (Marca / Producto)
+            <input type="file" id="fotoFrontal" accept="image/*" capture="environment">
         </label>
+        <img id="prevFrontal" class="preview">
 
-        <div id="loading">Analizando imagen con Gemini...</div>
+        <label class="btn-cam" id="labelTrasera" style="margin-top: 15px;">
+            📷 2. Foto Trasera (Ingredientes / Origen)
+            <input type="file" id="fotoTrasera" accept="image/*" capture="environment">
+        </label>
+        <img id="prevTrasera" class="preview">
+
+        <button class="btn-send" id="btnEnviar" disabled>Analizar con Gemini</button>
+
+        <div id="loading">Analizando ambas imágenes...</div>
         <pre id="resultado"></pre>
     </div>
 
     <script>
         const SUPABASE_URL = "https://oevhrfvejqeocvqebrhz.supabase.co/functions/v1/analisis-origen";
-        const SUPABASE_ANON_KEY = "TU_CLAVE_ANON_PUBLICA"; // sb_publishable_Uo-YrAUvLcqN-dUwnjwXGQ_MYj4rKVB
+        const SUPABASE_ANON_KEY = "TU_CLAVE_ANON_PUBLICA"; // Pega aquí tu clave anon de Supabase
 
-        document.getElementById('fotoInput').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+        let base64Frontal = null;
+        let base64Trasera = null;
+
+        function procesarImagen(file, tipo) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1];
+                if (tipo === 'frontal') {
+                    base64Frontal = base64;
+                    document.getElementById('prevFrontal.src') // placeholder para corregir sintaxis
+                    const prev = document.getElementById('prevFrontal');
+                    prev.src = reader.result;
+                    prev.style.display = 'block';
+                    document.getElementById('labelFrontal').classList.add('ready');
+                } else {
+                    base64Trasera = base64;
+                    const prev = document.getElementById('prevTrasera');
+                    prev.src = reader.result;
+                    prev.style.display = 'block';
+                    document.getElementById('labelTrasera').classList.add('ready');
+                }
+
+                if (base64Frontal && base64Trasera) {
+                    document.getElementById('btnEnviar').disabled = false;
+                }
+            };
+        }
+
+        document.getElementById('fotoFrontal').addEventListener('change', (e) => {
+            if (e.target.files[0]) procesarImagen(e.target.files[0], 'frontal');
+        });
+
+        document.getElementById('fotoTrasera').addEventListener('change', (e) => {
+            if (e.target.files[0]) procesarImagen(e.target.files[0], 'trasera');
+        });
+
+        document.getElementById('btnEnviar').addEventListener('click', async () => {
+            if (!base64Frontal || !base64Trasera) return;
 
             const loading = document.getElementById('loading');
             const resultado = document.getElementById('resultado');
+            const btnEnviar = document.getElementById('btnEnviar');
+            
             loading.style.display = 'block';
             resultado.textContent = '';
+            btnEnviar.disabled = true;
 
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async () => {
-                const base64String = reader.result.split(',')[1];
+            try {
+                const response = await fetch(SUPABASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ 
+                        image_frontal_base64: base64Frontal,
+                        image_trasera_base64: base64Trasera 
+                    })
+                });
 
-                try {
-                    const response = await fetch(SUPABASE_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                        },
-                        body: JSON.stringify({ image_base64: base64String })
-                    });
-
-                    const data = await response.json();
-                    loading.style.display = 'none';
-                    resultado.textContent = JSON.stringify(data, null, 2);
-                } catch (err) {
-                    loading.style.display = 'none';
-                    resultado.textContent = 'Error de conexión: ' + err.message;
-                }
-            };
+                const data = await response.json();
+                loading.style.display = 'none';
+                resultado.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                loading.style.display = 'none';
+                resultado.textContent = 'Error de conexión: ' + err.message;
+                btnEnviar.disabled = false;
+            }
         });
     </script>
 </body>
