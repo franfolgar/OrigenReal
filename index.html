@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captura - Origen Real</title>
+    <style>
+        body { font-family: system-ui, sans-serif; padding: 20px; text-align: center; background: #f8fafc; color: #1e293b; margin: 0; }
+        .container { max-width: 400px; margin: 40px auto; background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        input[type="file"] { display: none; }
+        .btn-cam { display: block; width: 100%; background: #0ea5e9; color: white; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; box-sizing: border-box; text-align: center; }
+        .btn-cam:active { background: #0284c7; }
+        #loading { display: none; margin-top: 20px; font-weight: 600; color: #f59e0b; }
+        #resultado { margin-top: 20px; text-align: left; font-size: 13px; background: #f1f5f9; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; max-height: 250px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Auditor de Envases</h2>
+        <p>Abre la cámara trasera para capturar el etiquetado.</p>
+        
+        <label class="btn-cam">
+            📷 Abrir Cámara
+            <input type="file" id="fotoInput" accept="image/*" capture="environment">
+        </label>
+
+        <div id="loading">Analizando imagen con Gemini...</div>
+        <pre id="resultado"></pre>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://oevhrfvejqeocvqebrhz.supabase.co/functions/v1/analisis-origen";
+        const SUPABASE_ANON_KEY = "TU_CLAVE_ANON_PUBLICA"; // Pega aquí tu clave anon de Supabase
+
+        document.getElementById('fotoInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const loading = document.getElementById('loading');
+            const resultado = document.getElementById('resultado');
+            loading.style.display = 'block';
+            resultado.textContent = '';
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                const base64String = reader.result.split(',')[1];
+
+                try {
+                    const response = await fetch(SUPABASE_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ image_base64: base64String })
+                    });
+
+                    const data = await response.json();
+                    loading.style.display = 'none';
+                    resultado.textContent = JSON.stringify(data, null, 2);
+                } catch (err) {
+                    loading.style.display = 'none';
+                    resultado.textContent = 'Error de conexión: ' + err.message;
+                }
+            };
+        });
+    </script>
+</body>
+</html>
